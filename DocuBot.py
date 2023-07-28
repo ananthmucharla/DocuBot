@@ -1,4 +1,6 @@
-import chat_DocuBot
+from chat_DocuBot import chat_module
+from qna_DocuBot import qna_module
+from summary_DocuBot import summary_module
 import streamlit as st
 from streamlit_option_menu import option_menu
 
@@ -31,4 +33,10 @@ if __name__ == '__main__':
         st.write(':point_right: Answer any questions users may have on uploaded documents')
 
     if selected == 'Chat':
-        chat_DocuBot.chat_module()
+        chat_module()
+
+    if selected == 'Summarize':
+        summary_module()
+
+    if selected == 'QnA':
+        qna_module()

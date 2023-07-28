@@ -1,14 +1,17 @@
+from __future__ import annotations
+
 import streamlit as st
 from time import sleep
-from langchain.chat_models import ChatOpenAI
-from langchain.agents import load_tools, initialize_agent, AgentType
+from langchain.agents import load_tools, AgentType, initialize_agent
 from langchain.memory import ConversationBufferMemory
-import os
+from langchain.utilities import SerpAPIWrapper
+from langchain.chat_models import ChatOpenAI
 
 
 def chat_module():
-    llm = ChatOpenAI(temperature=0)
-    tools = load_tools(["google-search", "llm-math", "wikipedia"], llm=llm)
+
+    llm = ChatOpenAI(model="gpt-3.5-turbo-16k", temperature=0.5)
+    tools = load_tools(["serpapi", "llm-math", "wikipedia"], llm=llm)
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
     agent_chain = initialize_agent(tools, llm, agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION,
                                    verbose=False, memory=memory)
@@ -42,6 +45,6 @@ def chat_module():
                 # full_response += response.choices[0].delta.get("content", "")
                 full_response += response
                 message_placeholder.markdown(full_response + "▌")
-                sleep(0.03)
+                sleep(0.02)
             message_placeholder.markdown(full_response)
         st.session_state.messages.append({"role": "assistant", "content": full_response})

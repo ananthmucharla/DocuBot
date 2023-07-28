@@ -1,6 +1,8 @@
 import streamlit as st
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import Chroma
+import os
+from time import sleep
 
 
 # loading PDF, DOCX and TXT files as LangChain Documents
@@ -18,17 +20,17 @@ def load_document(file):
         loader = Docx2txtLoader(file)
     elif extension == '.txt':
         from langchain.document_loaders import TextLoader
-        loader = TextLoader(file)
+        loader = TextLoader(file, encoding='utf-8')
     else:
         print('Document format is not supported!')
         return None
 
-    data = loader.load()
-    return data
+    data_uploaded = loader.load()
+    return data_uploaded
 
 
 # splitting data in chunks
-def chunk_data(data, chunk_size=256, chunk_overlap=20):
+def chunk_data(data, chunk_size=256, chunk_overlap=50):
     from langchain.text_splitter import RecursiveCharacterTextSplitter
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     chunks = text_splitter.split_documents(data)
@@ -46,7 +48,7 @@ def ask_and_get_answer(vector_store, q, k=3):
     from langchain.chains import RetrievalQA
     from langchain.chat_models import ChatOpenAI
 
-    llm = ChatOpenAI(model='gpt-3.5-turbo', temperature=1)
+    llm = ChatOpenAI(model='gpt-3.5-turbo-16k', temperature=1)
     retriever = vector_store.as_retriever(search_type='similarity', search_kwargs={'k': k})
     chain = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever)
 
@@ -66,36 +68,36 @@ def calculate_embedding_cost(texts):
 
 # clear the chat history from streamlit session state
 def clear_history():
-    if 'history' in st.session_state:
-        del st.session_state['history']
+    if 'qna_history' in st.session_state:
+        del st.session_state['qna_history']
+
+    if 'vs' in st.session_state:
+        del st.session_state['vs']
 
 
-if __name__ == "__main__":
-    import os
-
-    # loading the OpenAI api key from .env
-    from dotenv import load_dotenv, find_dotenv
-    load_dotenv(find_dotenv(), override=True)
-
-    st.image('img.png', )
-    st.subheader('LLM Question-Answering Application 🤖')
+def qna_module():
     with st.sidebar:
-        # text_input for the OpenAI API key (alternative to python-dotenv and .env)
-        api_key = st.text_input('OpenAI API Key:', type='password')
-        if api_key:
-            os.environ['OPENAI_API_KEY'] = api_key
-
         # file uploader widget
         uploaded_file = st.file_uploader('Upload a file:', type=['pdf', 'docx', 'txt'])
 
-        # chunk size number widget
-        chunk_size = st.number_input('Chunk size:', min_value=100, max_value=2048, value=512, on_change=clear_history)
+        # # chunk size number widget
+        # chunk_size = st.number_input('Chunk size:', min_value=100, max_value=2048, value=512, on_change=clear_history)
+        #
+        # # k number input widget
+        # k = st.number_input('k', min_value=1, max_value=20, value=3, on_change=clear_history)
+        #
 
-        # k number input widget
-        k = st.number_input('k', min_value=1, max_value=20, value=3, on_change=clear_history)
+        chunk_size = 10000
+        k = 5
 
         # add data button widget
-        add_data = st.button('Add Data', on_click=clear_history)
+        _, col2, _ = st.columns([1,1,1])
+
+        with col2:
+            add_data = st.button('Add Data', on_click=clear_history)
+
+        if add_data and not uploaded_file:
+            st.write('Please upload a document first!')
 
         if uploaded_file and add_data:  # if the user browsed a file
             with st.spinner('Reading, chunking and embedding file ...'):
@@ -119,32 +121,28 @@ if __name__ == "__main__":
                 st.session_state.vs = vector_store
                 st.success('File uploaded, chunked and embedded successfully.')
 
-    # user's question text input widget
-    q = st.text_input('Ask a question about the content of your file:')
-    if q:  # if the user entered a question and hit enter
+    if 'qna_history' not in st.session_state:
+        st.session_state.qna_history = []
+
+    for message in st.session_state.qna_history:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    if question := st.chat_input("Ask a question about the content of your file"):
+        st.session_state.qna_history.append({"role": "user", "content": question})
+        with st.chat_message("user"):
+            st.markdown(question)
+
         if 'vs' in st.session_state:  # if there's the vector store (user uploaded, split and embedded a file)
             vector_store = st.session_state.vs
-            # st.write(f'k: {k}')
-            answer = ask_and_get_answer(vector_store, q, k)
+            answer = ask_and_get_answer(vector_store, question, k)
 
-            # text area widget for the LLM answer
-            st.text_area('LLM Answer: ', value=answer)
-
-            st.divider()
-
-            # if there's no chat history in the session state, create it
-            if 'history' not in st.session_state:
-                st.session_state.history = ''
-
-            # the current question and answer
-            value = f'Q: {q} \nA: {answer}'
-
-            st.session_state.history = f'{value} \n {"-" * 100} \n {st.session_state.history}'
-            h = st.session_state.history
-
-            # text area widget for the chat history
-            st.text_area(label='Chat History', value=h, key='history', height=400)
-        else:
-            st.write('Upload a document first!')
-
-# run the app: streamlit run ./chat_with_documents.py
+            with st.chat_message("assistant"):
+                message_placeholder = st.empty()
+                full_response = ""
+                for char in answer:
+                    full_response += char
+                    message_placeholder.markdown(full_response + "▌")
+                    sleep(0.03)
+                message_placeholder.markdown(full_response)
+            st.session_state.qna_history.append({"role": "assistant", "content": full_response})
