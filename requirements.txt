@@ -5,6 +5,7 @@ numpy==1.22.2
 openai==0.27.5
 openapi-schema-pydantic==1.2.4
 pinecone-client==2.2.2
+streamlit==1.24.1
 tiktoken==0.4.0
 tokenizers==0.13.3
 wikipedia==1.4.0
