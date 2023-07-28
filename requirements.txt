@@ -1,3 +1,4 @@
+chromadb==0.4.2
 google-search-results==2.4.2
 langchain==0.0.232
 langsmith==0.0.5
@@ -6,6 +7,7 @@ openai==0.27.5
 openapi-schema-pydantic==1.2.4
 pinecone-client==2.2.2
 streamlit==1.24.1
+streamlit_option_menu==0.3.6
 tiktoken==0.4.0
 tokenizers==0.13.3
 wikipedia==1.4.0
